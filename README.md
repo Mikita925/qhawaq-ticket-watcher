@@ -1,6 +1,6 @@
 ![Qhawaq Ticket Watcher](docs/images/banner.svg)
 
-# Qhawaq — Joinnus Ticket Availability Monitor
+# Qhawaq - Event Ticket Availability Monitor
 
 **A lightweight bot that watches a [Joinnus](https://www.joinnus.com) event page and sends you an instant Telegram alert the moment a ticket tier or fan-meeting add-on changes state — restocked, newly released, or sold out — so you can buy through the normal flow before everyone else.**
 
