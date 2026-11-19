@@ -172,4 +172,4 @@ The actual purchase is always made by a human, through the official flow, in nor
 
 ## 10. License
 
-Released under the [MIT License](LICENSE). © 2026 \<Isabel Makishi\>.
+Released under the [MIT License](LICENSE). © 2026 Isabel Makishi.
