@@ -54,6 +54,14 @@ USER_AGENT = (
     "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 )
 
+# Chromium flags that keep it stable on small/low-RAM servers and inside
+# Docker (where it runs as root): no sandbox, don't rely on /dev/shm, no GPU.
+BROWSER_ARGS = [
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+]
+
 
 # ----------------------------------------------------------------------
 # Telegram
@@ -86,6 +94,8 @@ def parse_status(text: str) -> dict:
 
     On the page each row reads: NAME, (optionally 'Detalles'), 'S/ price',
     then the state: a number (a quantity selector = available) or 'AGOTADAS'.
+    ('Detalles' and 'agotad' are the site's literal Spanish labels, matched
+    verbatim - translating them would break detection.)
     """
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     status = {}
@@ -149,7 +159,7 @@ def main() -> None:
     print(f"[i] Checking every {POLL_INTERVAL}s. Press Ctrl+C to stop.\n")
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=HEADLESS)
+        browser = p.chromium.launch(headless=HEADLESS, args=BROWSER_ARGS)
         ctx = browser.new_context(
             user_agent=USER_AGENT,
             locale="es-PE",
@@ -167,7 +177,7 @@ def main() -> None:
 
         if not previous:
             send_telegram("🟡 Watcher started but could not read the tickets "
-                          "(Joinnus may be blocking). Retrying...")
+                          "(the site may be blocking). Retrying...")
             print("[!] No tickets read on startup.")
         else:
             summary = "\n".join(
