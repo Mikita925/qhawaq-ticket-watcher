@@ -35,11 +35,8 @@ from playwright.sync_api import sync_playwright
 # ----------------------------------------------------------------------
 load_dotenv()
 
-EVENT_URL = os.environ.get(
-    "EVENT_URL",
-    "https://www.joinnus.com/events/concerts/"
-    "lima-becky-armstrong-en-lima-unspoken-word-tour-2027-80565",
-)
+# The event page to watch. Required - set it in .env or as an env var.
+EVENT_URL = os.environ.get("EVENT_URL", "")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
