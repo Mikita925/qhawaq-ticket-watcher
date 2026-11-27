@@ -38,8 +38,8 @@ load_dotenv()
 
 EVENT_URL = os.environ.get(
     "EVENT_URL",
-    "https://www.joinnus.com/events/concerts/"
-    "lima-becky-armstrong-en-lima-unspoken-word-tour-2027-80565",
+    "EVENT_URL"
+    "EVENT_URL",
 )
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
