@@ -115,12 +115,30 @@ def parse_status(text: str) -> dict:
 
 def read_page(page) -> dict:
     """Load the event page and return the parsed status of every row."""
-    page.goto(EVENT_URL, wait_until="networkidle", timeout=60000)
+    # Wait for the DOM, not for full network silence: sites like Joinnus keep
+    # background connections (analytics, etc.) open, so "networkidle" can time
+    # out. We instead wait for the ticket prices to actually appear.
+    page.goto(EVENT_URL, wait_until="domcontentloaded", timeout=60000)
     try:
-        page.wait_for_selector(r"text=/S\/\s*\d/", timeout=20000)
+        page.wait_for_selector(r"text=/S\/\s*\d/", timeout=30000)
     except Exception:
         pass
     return parse_status(page.inner_text("main"))
+
+
+def get_event_title(page) -> str:
+    """Read the event name from the page title, kept generic across sites.
+
+    The browser tab title usually looks like 'EVENT NAME | SiteName', so we
+    drop the site suffix and tidy the casing.
+    """
+    try:
+        raw = (page.title() or "").strip()
+    except Exception:
+        return ""
+    # Drop a trailing " | Site" or " - Site" suffix.
+    title = re.split(r"\s[|\-–]\s", raw)[0].strip()
+    return title.title() if title.isupper() else title
 
 
 def describe_changes(before: dict, now: dict) -> str:
@@ -133,12 +151,12 @@ def describe_changes(before: dict, now: dict) -> str:
                 if now[n] == "sold_out" and before.get(n) == "available"]
 
     if restocked:
-        parts.append("✅ <b>NOW AVAILABLE:</b>\n- " + "\n- ".join(restocked))
+        parts.append("✅ <b>YA DISPONIBLE(S):</b>\n- " + "\n- ".join(restocked))
     if new:
-        parts.append("🆕 New tier(s):\n- "
+        parts.append("🆕 Nueva(s) categoría(s):\n- "
                      + "\n- ".join(f"{n} ({now[n]})" for n in new))
     if sold_out:
-        parts.append("⛔ Sold out:\n- " + "\n- ".join(sold_out))
+        parts.append("⛔ Se agotaron:\n- " + "\n- ".join(sold_out))
     return "\n\n".join(parts)
 
 
@@ -167,22 +185,26 @@ def main() -> None:
         # Initial read
         try:
             previous = read_page(page)
+            event_title = get_event_title(page)
         except Exception as e:
             print(f"[!] Failed on startup: {e}")
             browser.close()
             return
 
+        title_line = f"<b>{event_title}</b>\n" if event_title else ""
+
         if not previous:
-            send_telegram("🟡 Watcher started but could not read the tickets "
-                          "(the site may be blocking). Retrying...")
+            send_telegram("🟡 El monitor arrancó pero no pudo leer las entradas "
+                          "(la página podría estar bloqueando). Reintentando...")
             print("[!] No tickets read on startup.")
         else:
             summary = "\n".join(
-                f"• {n}: {'available' if s == 'available' else 'SOLD OUT'}"
+                f"• {n}: {'disponible' if s == 'available' else 'AGOTADA'}"
                 for n, s in previous.items()
             )
-            send_telegram("🟢 <b>Watcher is live</b>\n"
-                          f"{summary}\n\nI'll ping you as soon as anything changes.")
+            send_telegram(f"🟢 <b>Monitor activo</b>\n{title_line}\n"
+                          f"Estado actual:\n{summary}\n\n"
+                          "Te aviso en cuanto algo cambie.")
             print(f"[{datetime.now():%H:%M:%S}] Initial state:")
             for n, s in previous.items():
                 print(f"    {n}: {s}")
@@ -202,8 +224,8 @@ def main() -> None:
 
             changes = describe_changes(previous, current)
             if changes:
-                send_telegram(f"🔔 <b>CHANGE DETECTED</b>\n\n{changes}\n\n"
-                              f"👉 Buy now:\n{EVENT_URL}")
+                send_telegram(f"🔔 <b>CAMBIO EN EL EVENTO</b>\n{title_line}\n"
+                              f"{changes}\n\n👉 Entra ya:\n{EVENT_URL}")
                 print(f"[{datetime.now():%H:%M:%S}] Change alerted:\n{changes}")
                 previous = current
             else:
