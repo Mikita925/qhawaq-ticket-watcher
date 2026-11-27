@@ -30,17 +30,13 @@ import requests
 from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright
 
-
 # ----------------------------------------------------------------------
 # Configuration (from environment variables / .env file)
 # ----------------------------------------------------------------------
 load_dotenv()
 
-EVENT_URL = os.environ.get(
-    "EVENT_URL",
-    "https://www.joinnus.com/events/concerts/"
-    "lima-becky-armstrong-en-lima-unspoken-word-tour-2027-80565",
-)
+# The event page to watch. Required - set it in .env or as an env var.
+EVENT_URL = os.environ.get("EVENT_URL", "")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
@@ -54,6 +50,14 @@ USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 )
+
+# Chromium flags that keep it stable on small/low-RAM servers and inside
+# Docker (where it runs as root): no sandbox, don't rely on /dev/shm, no GPU.
+BROWSER_ARGS = [
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+]
 
 
 # ----------------------------------------------------------------------
@@ -87,6 +91,8 @@ def parse_status(text: str) -> dict:
 
     On the page each row reads: NAME, (optionally 'Detalles'), 'S/ price',
     then the state: a number (a quantity selector = available) or 'AGOTADAS'.
+    ('Detalles' and 'agotad' are the site's literal Spanish labels, matched
+    verbatim - translating them would break detection.)
     """
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     status = {}
@@ -140,8 +146,8 @@ def describe_changes(before: dict, now: dict) -> str:
 # Main loop
 # ----------------------------------------------------------------------
 def main() -> None:
-    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
-        print("[!] Missing TELEGRAM_TOKEN or TELEGRAM_CHAT_ID. "
+    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID or not EVENT_URL:
+        print("[!] Missing EVENT_URL, TELEGRAM_TOKEN or TELEGRAM_CHAT_ID. "
               "Set them in a .env file or as environment variables.")
         return
 
@@ -150,7 +156,7 @@ def main() -> None:
     print(f"[i] Checking every {POLL_INTERVAL}s. Press Ctrl+C to stop.\n")
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=HEADLESS)
+        browser = p.chromium.launch(headless=HEADLESS, args=BROWSER_ARGS)
         ctx = browser.new_context(
             user_agent=USER_AGENT,
             locale="es-PE",
@@ -168,7 +174,7 @@ def main() -> None:
 
         if not previous:
             send_telegram("🟡 Watcher started but could not read the tickets "
-                          "(Joinnus may be blocking). Retrying...")
+                          "(the site may be blocking). Retrying...")
             print("[!] No tickets read on startup.")
         else:
             summary = "\n".join(
